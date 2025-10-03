@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinançaPro - Gestão Financeira Inteligente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #1e40af;
+            --accent: #3b82f6;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-container {
+            height: 300px;
+        }
+        
+        .transaction-animation {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+    
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <img src="https://placehold.co/40x40/BFDBFE/1E3A8A?text=FP" alt="FinançaPro Logo - círculo azul com FP branco" class="mr-3">
+                    <h1 class="text-xl font-bold">FinançaPro</h1>
+                </div>
+                <nav class="hidden md:block">
+                    <ul class="flex space-x-8">
+                        <li><a href="#" class="hover:text-blue-200 transition">Dashboard</a></li>
+                        <li><a href="#" class="hover:text-blue-200 transition">Transações</a></li>
+                        <li><a href="#" class="hover:text-blue-200 transition">Relatórios</a></li>
+                        <li><a href="#" class="hover:text-blue-200 transition">Investimentos</a></li>
+                        <li><a href="#" class="hover:text-blue-200 transition">Configurações</a></li>
+                    </ul>
+                </nav>
+                <div class="flex items-center space-x-4">
+                    <a href="login" class="bg-white text-blue-600 px-4 py-2 rounded-full font-medium hover:bg-blue-50 transition">
+                        Login
+                    </a>
+                    <button class="md:hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    
+    <section class="gradient-bg text-white py-16">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row items-center">
+                <div class="md:w-1/2 mb-10 md:mb-0">
+                    <h2 class="text-3xl md:text-4xl font-bold mb-4">Controle suas finanças de forma inteligente</h2>
+                    <p class="text-lg mb-8">Plataforma completa para gestão financeira pessoal e empresarial com análises em tempo real e insights poderosos.</p>
+                    <div class="flex space-x-4">
+                        <button class="bg-white text-blue-600 px-6 py-3 rounded-full font-bold hover:bg-blue-50 transition">
+                            Comece Agora
+                        </button>
+                        <button class="border-2 border-white px-6 py-3 rounded-full font-bold hover:bg-white hover:text-blue-600 transition">
+                            Saiba Mais
+                        </button>
+                    </div>
+                </div>
+                <div class="md:w-1/2">
+                <img 
+                    src="https://placehold.co/600x400/BFDBFE/1E3A8A?text=Dashboard+Financeiro"
+                    alt="Dashboard financeiro em tons de azul claro e escuro"
+                    class="rounded-2xl shadow-2xl border-4 border-blue-300"
+                >
+                </div>
+
+
+
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="py-16 bg-white">
+        <div class="container mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div class="bg-blue-50 p-6 rounded-xl shadow-sm transition card-hover">
+                    <div class="text-blue-600 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Receita Mensal</h3>
+                    <p class="text-3xl font-bold">R$ 15,780</p>
+                    <p class="text-green-600">↑ 12% em relação ao mês passado</p>
+                </div>
+                
+                <div class="bg-blue-50 p-6 rounded-xl shadow-sm transition card-hover">
+                    <div class="text-blue-600 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Despesas</h3>
+                    <p class="text-3xl font-bold">R$ 9,420</p>
+                    <p class="text-red-600">↓ 5% em relação ao mês passado</p>
+                </div>
+                
+                <div class="bg-blue-50 p-6 rounded-xl shadow-sm transition card-hover">
+                    <div class="text-blue-600 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Investimentos</h3>
+                    <p class="text-3xl font-bold">R$ 4,200</p>
+                    <p class="text-green-600">↑ 8% em relação ao mês passado</p>
+                </div>
+                
+                <div class="bg-blue-50 p-6 rounded-xl shadow-sm transition card-hover">
+                    <div class="text-blue-600 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Patrimônio</h3>
+                    <p class="text-3xl font-bold">R$ 87,540</p>
+                    <p class="text-green-600">↑ 15% em relação ao ano passado</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="py-16 bg-gray-50">
+        <div class="container mx-auto px-6">
+            <h2 class="text-2xl font-bold mb-8 text-center">Análise Financeira Detalhada</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                    <h3 class="text-xl font-bold mb-4">Receitas vs Despesas</h3>
+                    <div class="chart-container">
+                        <canvas id="incomeExpenseChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                    <h3 class="text-xl font-bold mb-4">Distribuição de Gastos</h3>
+                    <div class="chart-container">
+                        <canvas id="expenseDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                <h3 class="text-xl font-bold mb-4">Histórico Financeiro</h3>
+                <div class="chart-container">
+                    <canvas id="financialHistoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="py-16 bg-white">
+        <div class="container mx-auto px-6">
+            <h2 class="text-2xl font-bold mb-8">Últimas Transações</h2>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                    <thead class="bg-blue-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr class="transaction-animation hover:bg-blue-50">
+                            <td class="px-6 py-4 whitespace-nowrap">15/06/2023</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-medium">Pagamento por serviços</td>
+                            <td class="px-6 py-4 whitespace-nowrap">Renda</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-green-600 font-medium">R$ 4,200.00</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Concluído</span>
+                            </td>
+                        </tr>
+                        <tr class="transaction-animation hover:bg-blue-50">
+                            <td class="px-6 py-4 whitespace-nowrap">14/06/2023</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-medium">Supermercado</td>
+                            <td class="px-6 py-4 whitespace-nowrap">Alimentação</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-red-600 font-medium">R$ 350.00</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Concluído</span>
+                            </td>
+                        </tr>
+                        <tr class="transaction-animation hover:bg-blue-50">
+                            <td class="px-6 py-4 whitespace-nowrap">12/06/2023</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-medium">Investimento em ações</td>
+                            <td class="px-6 py-4 whitespace-nowrap">Investimentos</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-green-600 font-medium">R$ 1,000.00</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Concluído</span>
+                            </td>
+                        </tr>
+                        <tr class="transaction-animation hover:bg-blue-50">
+                            <td class="px-6 py-4 whitespace-nowrap">10/06/2023</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-medium">Restaurante</td>
+                            <td class="px-6 py-4 whitespace-nowrap">Lazer</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-red-600 font-medium">R$ 120.00</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Concluído</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-6 flex justify-center">
+                <button class="border border-blue-600 text-blue-600 px-6 py-2 rounded-full font-medium hover:bg-blue-50 transition">
+                    Ver todas as transações
+                </button>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="py-16 bg-gray-50">
+        <div class="container mx-auto px-6">
+            <h2 class="text-2xl font-bold mb-12 text-center">Por que escolher o FinançaPro?</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                    <div class="text-blue-600 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9h14m0 0V7m0 2v2m2-8H3m18 14H3m0-10h2m0 0v2m0-2v6m2 0h14m0 0v2m0-2v-2" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Controle Total</h3>
+                    <p class="text-gray-600">Tenha visibilidade completa de todas as suas transações financeiras em um único lugar.</p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                    <div class="text-blue-600 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Relatórios Instantâneos</h3>
+                    <p class="text-gray-600">Gere relatórios detalhados com apenas um clique e tome decisões mais informadas.</p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                    <div class="text-blue-600 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Otimização Financeira</h3>
+                    <p class="text-gray-600">Sugestões inteligentes para reduzir despesas e aumentar seu patrimônio.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="gradient-bg text-white py-16">
+        <div class="container mx-auto px-6 text-center">
+            <h2 class="text-3xl font-bold mb-6">Pronto para transformar sua vida financeira?</h2>
+            <p class="text-xl mb-8 max-w-2xl mx-auto">Junte-se a milhares de usuários que já estão no controle das suas finanças.</p>
+            <a href="{{ url_for('register') }}" 
+            class="bg-white text-blue-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-blue-50 transition shadow-lg inline-block text-center">
+            Criar minha conta gratuita
+            </a>
+
+        </div>
+    </section>
+
+    
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="container mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <img src="https://placehold.co/80x40/BFDBFE/1E3A8A?text=FinPro&fontSize=20" alt="FinançaPro Logo - texto branco sobre fundo transparente" class="mb-4">
+                    <p class="text-gray-400">Plataforma de gestão financeira para pessoas e empresas que buscam controle e crescimento.</p>
+                </div>
+                
+            
+                
+                <div>
+                    <h3 class="text-lg font-bold mb-4">Soluções</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white transition">Pessoal</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition">Pequenas Empresas</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition">Startups</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition">Consultorias</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-bold mb-4">Contato</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li>contato@financapro.com.br</li>
+                        <li>(11) 99999-9990</li>
+                        <li>São Paulo - SP</li>
+                        <li class="pt-4 flex space-x-4">
+                            <a href="#">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hover:text-white transition" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/>
+                                </svg>
+                            </a>
+                            <a href="#">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hover:text-white transition" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M23.954 4.569c-.885.389-1.83.654-2.825.775 1.014-.611 1.794-1.574 2.163-2.723-.951.555-2.005.959-3.127 1.184-.896-.959-2.173-1.559-3.591-1.559-2.717 0-4.92 2.203-4.92 4.917 0 .39.045.765.127 1.124C7.691 8.094 4.066 6.13 1.64 3.161c-.427.722-.666 1.561-.666 2.475 0 1.71.87 3.213 2.188 4.096-.807-.026-1.566-.248-2.228-.616v.061c0 2.385 1.693 4.374 3.946 4.827-.413.111-.849.171-1.296.171-.314 0-.615-.03-.916-.086.631 1.953 2.445 3.377 4.604 3.417-1.68 1.319-3.809 2.105-6.102 2.105-.39 0-.779-.023-1.17-.067 2.189 1.394 4.768 2.209 7.557 2.209 9.054 0 14-7.503 14-14 0-.21-.005-.418-.014-.625.961-.689 1.8-1.56 2.46-2.548l-.07-.06z"/>
+                                </svg>
+                            </a>
+                            <a href="#">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hover:text-white transition" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.664-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                                </svg>
+                            </a>
+                            <a href="#">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hover:text-white transition" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                                </svg>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+                <p>© 2025 FinançaPro. Todos os direitos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Income vs Expense Chart
+            const incomeExpenseCtx = document.getElementById('incomeExpenseChart').getContext('2d');
+            const incomeExpenseChart = new Chart(incomeExpenseCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                    datasets: [
+                        {
+                            label: 'Receita',
+                            data: [12000, 14000, 13500, 16000, 15500, 15780],
+                            backgroundColor: 'rgba(37, 99, 235, 0.7)',
+                            borderColor: 'rgba(37, 99, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Despesas',
+                            data: [8500, 9200, 8700, 9500, 9700, 9420],
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+            
+            
+            const expenseDistributionCtx = document.getElementById('expenseDistributionChart').getContext('2d');
+            const expenseDistributionChart = new Chart(expenseDistributionCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Alimentação', 'Transporte', 'Lazer', 'Saúde', 'Outros'],
+                    datasets: [{
+                        data: [30, 20, 25, 15, 10],
+                        backgroundColor: [
+                            'rgba(37, 99, 235, 0.7)',
+                            'rgba(239, 68, 68, 0.7)',
+                            'rgba(34, 197, 94, 0.7)',
+                            'rgba(250, 204, 21, 0.7)',
+                            'rgba(156, 163, 175, 0.7)'
+                        ],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+            
+            
+            const financialHistoryCtx = document.getElementById('financialHistoryChart').getContext('2d');
+            const financialHistoryChart = new Chart(financialHistoryCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                    datasets: [{
+                        label: 'Patrimônio',
+                        data: [80000, 82000, 85000, 87000, 90000, 87540],
+                        borderColor: 'rgba(37, 99, 235, 1)',
+                        backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+        });
+        
+    </script>
+</body>
+</html>

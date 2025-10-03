@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>FinançaPro - Gerenciar Investimentos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #10b981;  
+            --secondary: #047857;
+            --accent: #34d399;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .chart-container {
+            height: 300px;
+        }
+        .transaction-animation {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .profit-badge {
+            background-color: #d1fae5;
+            color: #065f46;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .loss-badge {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        /* Modal styles */
+        #editModal {
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        #editModal > div {
+            max-width: 400px; /* reduz o tamanho máximo da modal */
+            padding: 1.5rem;  /* menos padding */
+            border-radius: 0.5rem;
+        }
+
+        #editModal textarea,
+        #editModal input,
+        #editModal select {
+            font-size: 0.870rem; /* texto um pouco menor */
+            padding: 0.5rem;
+        }
+
+        #editModal h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        #editModal .flex.justify-end {
+            gap: 0.5rem; /* reduz espaço entre botões */
+        }
+
+        .max-w-md {
+            max-width: 400px !important;
+            padding: 1.5rem !important;
+        }
+
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans antialiased flex">
+
+    <!-- Menu lateral -->
+    <nav id="menuLateral" class="bg-white shadow-lg w-64 h-screen fixed transform -translate-x-full transition-transform duration-300 ease-in-out z-50">
+        <div class="p-6">
+            <h2 class="text-xl font-bold mb-4">Menu</h2>
+            <ul class="space-y-2">
+                <li><a href="{{ url_for('index') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Início</a></li>
+                <li><a href="{{ url_for('gerenciar_receitas') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Receitas</a></li>
+                <li><a href="{{ url_for('gerenciar_despesas') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Despesas</a></li>
+                <li><a href="{{ url_for('logout') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Sair</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Conteúdo principal -->
+    <div id="mainContent" class="flex-1 ml-0 p-6 transition-all duration-300">
+
+        <!-- Header -->
+        <header class="gradient-bg text-white shadow-lg mb-6">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center">
+                    <button id="menuToggle" class="text-white focus:outline-none mr-4" aria-label="Toggle menu">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>
+                        </svg>
+                    </button>
+                    <img src="https://placehold.co/40x40/D1FAE5/047857?text=FP" alt="FinançaPro Logo" class="mr-3">
+                    <h1 class="text-xl font-bold">FinançaPro</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="{{ url_for('logout') }}" class="bg-white text-green-600 px-4 py-2 rounded-full font-medium hover:bg-green-50 transition">Sair</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Seção principal -->
+        <section class="py-16">
+            <div class="container mx-auto px-6">
+                <h2 class="text-2xl font-bold mb-8 text-center">Gerenciar Investimentos</h2>
+
+                <!-- Resumo -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                        <h3 class="text-lg font-bold mb-2">Total Investido</h3>
+                        <p class="text-3xl font-bold text-green-600">R$ {{ total_investido|default('0,00') }}</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                        <h3 class="text-lg font-bold mb-2">Valor Atual</h3>
+                        <p class="text-3xl font-bold text-blue-600">R$ {{ valor_atual|default('0,00') }}</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                        <h3 class="text-lg font-bold mb-2">Rentabilidade</h3>
+                        <p class="text-3xl font-bold {% if rentabilidade >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                            {{ rentabilidade|default('0,00') }}%
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Formulário para adicionar investimento -->
+                <div class="bg-white p-6 rounded-xl shadow-sm mb-8">
+                    <h3 class="text-xl font-bold mb-4">Adicionar Investimento</h3>
+                    <form method="POST" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                                <select id="tipo" name="tipo" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="Ações">Ações</option>
+                                    <option value="Fundos">Fundos Imobiliários</option>
+                                    <option value="Tesouro">Tesouro Direto</option>
+                                    <option value="CDB">CDB</option>
+                                    <option value="LCI/LCA">LCI/LCA</option>
+                                    <option value="ETF">ETF</option>
+                                    <option value="Cripto">Criptomoedas</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label for="ativo" class="block text-sm font-medium text-gray-700 mb-1">Ativo</label>
+                                <input type="text" id="ativo" name="ativo" placeholder="Ex: PETR4" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required>
+                            </div>
+                            
+                            <div>
+                                <label for="quantidade" class="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
+                                <input type="number" id="quantidade" name="quantidade" placeholder="Ex: 100" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" min="1" required>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="valor_unitario" class="block text-sm font-medium text-gray-700 mb-1">Valor Unitário (R$)</label>
+                                <input type="number" id="valor_unitario" name="valor_unitario" step="0.01" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required>
+                            </div>
+                            
+                            <div>
+                                <label for="data_compra" class="block text-sm font-medium text-gray-700 mb-1">Data da Compra</label>
+                                <input type="date" id="data_compra" name="data_compra" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required>
+                            </div>
+                            
+                            <div>
+                                <label for="valor_atual" class="block text-sm font-medium text-gray-700 mb-1">Valor Atual (R$)</label>
+                                <input type="number" id="valor_atual" name="valor_atual" step="0.01" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="descricao" class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                            <textarea id="descricao" name="descricao" rows="2" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500"></textarea>
+                        </div>
+                        
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-md font-medium hover:bg-green-700 transition">Adicionar Investimento</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Análise de Investimentos -->
+                <h3 class="text-xl font-bold mb-4">Análise de Investimentos</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                        <h4 class="text-lg font-bold mb-2">Distribuição por Tipo</h4>
+                        <div class="chart-container">
+                            <canvas id="tipoInvestimentoChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+                        <h4 class="text-lg font-bold mb-2">Rentabilidade por Ativo</h4>
+                        <div class="chart-container">
+                            <canvas id="rentabilidadeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Investimentos -->
+                <h3 class="text-xl font-bold mb-4">Lista de Investimentos</h3>
+                <div class="overflow-x-auto bg-white rounded-xl shadow-sm">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ativo</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantidade</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Médio</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Atual</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rentabilidade</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for investimento in investimentos %}
+                            <tr class="transaction-animation hover:bg-green-50">
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">{{ investimento.ativo }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ investimento.tipo }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ investimento.quantidade }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">R$ {{ "%.2f"|format(investimento.valor_unitario) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">R$ {{ "%.2f"|format(investimento.valor_atual) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% set rent = ((investimento.valor_atual - investimento.valor_unitario) / investimento.valor_unitario) * 100 %}
+                                    <span class="{% if rent >= 0 %}text-green-600{% else %}text-red-600{% endif %} font-medium">
+                                        {{ "%.2f"|format(rent) }}%
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap flex items-center space-x-4">
+                                   <button
+                                        type="button"
+                                        class="text-blue-600 hover:underline mr-3"
+                                        data-id="{{ investimento.id }}"
+                                        data-tipo="{{ investimento.tipo }}"
+                                        data-ativo="{{ investimento.ativo }}"
+                                        data-quantidade="{{ investimento.quantidade }}"
+                                        data-valor-unitario="{{ investimento.valor_unitario }}"
+                                        data-valor-atual="{{ investimento.valor_atual }}"
+                                        data-data-compra="{{ investimento.data_compra }}"
+                                        data-descricao="{{ investimento.descricao }}"
+                                        onclick="openEditModal(this)">
+                                        Editar
+                                    </button>
+
+
+                                    <form action="{{ url_for('delete_investimento', id=investimento.id) }}" method="POST" class="inline">
+                                        <button type="submit" class="text-red-600 hover:underline">Deletar</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="bg-gray-900 text-white py-12">
+            <div class="container mx-auto px-6 text-center">
+                <p>© 2025 FinançaPro. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modal de edição -->
+    <div id="editModal" class="hidden fixed inset-0 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <button onclick="closeEditModal()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800" aria-label="Fechar modal">&times;</button>
+            <h3 class="text-xl font-bold mb-4">Editar Investimento</h3>
+            <form id="editForm" method="POST" class="space-y-4">
+                <input type="hidden" id="editId" name="id" />
+                <div>
+                    <label for="editTipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                    <select id="editTipo" name="tipo" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required>
+                        <option value="Ações">Ações</option>
+                        <option value="Fundos">Fundos Imobiliários</option>
+                        <option value="Tesouro">Tesouro Direto</option>
+                        <option value="CDB">CDB</option>
+                        <option value="LCI/LCA">LCI/LCA</option>
+                        <option value="ETF">ETF</option>
+                        <option value="Cripto">Criptomoedas</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="editAtivo" class="block text-sm font-medium text-gray-700 mb-1">Ativo</label>
+                    <input type="text" id="editAtivo" name="ativo" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required />
+                </div>
+
+                <div>
+                    <label for="editQuantidade" class="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
+                    <input type="number" id="editQuantidade" name="quantidade" min="1" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required />
+                </div>
+
+                <div>
+                    <label for="editValorUnitario" class="block text-sm font-medium text-gray-700 mb-1">Valor Unitário (R$)</label>
+                    <input type="number" id="editValorUnitario" name="valor_unitario" step="0.01" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required />
+                </div>
+
+                <div>
+                    <label for="editValorAtual" class="block text-sm font-medium text-gray-700 mb-1">Valor Atual (R$)</label>
+                    <input type="number" id="editValorAtual" name="valor_atual" step="0.01" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required />
+                </div>
+
+                <div>
+                    <label for="editDataCompra" class="block text-sm font-medium text-gray-700 mb-1">Data da Compra</label>
+                    <input type="date" id="editDataCompra" name="data_compra" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500" required />
+                </div>
+
+                <div>
+                    <label for="editDescricao" class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                    <textarea id="editDescricao" name="descricao" rows="2" class="w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500"></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-4">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-100">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-md font-medium hover:bg-green-700 transition">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Variáveis do Flask (garanta que no seu Flask esteja passando as variáveis corretamente)
+        const tipos = JSON.parse('{{ tipos | tojson | safe }}');
+        const valoresTipo = JSON.parse('{{ valores_tipo | tojson | safe }}');
+        const ativos = JSON.parse('{{ ativos | tojson | safe }}');
+        const valoresRent = JSON.parse('{{ valores_rent | tojson | safe }}');
+
+        // Toggle menu lateral
+        const menuToggle = document.getElementById('menuToggle');
+        const menu = document.getElementById('menuLateral');
+        const mainContent = document.getElementById('mainContent');
+
+        menuToggle.addEventListener('click', () => {
+            if (menu.classList.contains('-translate-x-full')) {
+                menu.classList.remove('-translate-x-full');
+                menu.classList.add('translate-x-0');
+                mainContent.classList.add('ml-64');
+            } else {
+                menu.classList.remove('translate-x-0');
+                menu.classList.add('-translate-x-full');
+                mainContent.classList.remove('ml-64');
+            }
+        });
+
+        // Inicializar gráficos Chart.js
+        document.addEventListener('DOMContentLoaded', () => {
+            const tipoInvestimentoCtx = document.getElementById('tipoInvestimentoChart').getContext('2d');
+            new Chart(tipoInvestimentoCtx, {
+                type: 'pie',
+                data: {
+                    labels: tipos,
+                    datasets: [{
+                        data: valoresTipo,
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.7)',
+                            'rgba(59, 130, 246, 0.7)',
+                            'rgba(245, 158, 11, 0.7)',
+                            'rgba(139, 92, 246, 0.7)',
+                            'rgba(20, 184, 166, 0.7)',
+                            'rgba(234, 88, 12, 0.7)'
+                        ].slice(0, tipos.length),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+
+            const rentabilidadeCtx = document.getElementById('rentabilidadeChart').getContext('2d');
+            new Chart(rentabilidadeCtx, {
+                type: 'bar',
+                data: {
+                    labels: ativos,
+                    datasets: [{
+                        label: 'Rentabilidade (%)',
+                        data: valoresRent,
+                        backgroundColor: valoresRent.map(v => v >= 0
+                            ? 'rgba(16, 185, 129, 0.7)'
+                            : 'rgba(239, 68, 68, 0.7)'),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { beginAtZero: false } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        });
+
+        // Funções para abrir/fechar modal de edição
+        function openEditModal(button) {
+        document.getElementById('editId').value = button.dataset.id;
+        document.getElementById('editTipo').value = button.dataset.tipo;
+        document.getElementById('editAtivo').value = button.dataset.ativo;
+        document.getElementById('editQuantidade').value = button.dataset.quantidade;
+        document.getElementById('editValorUnitario').value = button.dataset.valorUnitario;
+        document.getElementById('editValorAtual').value = button.dataset.valorAtual;
+        document.getElementById('editDataCompra').value = button.dataset.dataCompra;
+        document.getElementById('editDescricao').value = button.dataset.descricao;
+
+        const form = document.getElementById('editForm');
+        form.action = `/investimentos/editar/${button.dataset.id}`;
+
+        document.getElementById('editModal').classList.remove('hidden');
+        }
+
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

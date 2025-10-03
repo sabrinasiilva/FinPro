@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FinançaPro - Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --secondary: #1e40af;
+      --accent: #3b82f6;
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    }
+    .card-hover:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    .chart-container {
+      height: 300px;
+    }
+    .transaction-animation {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 font-sans antialiased flex flex-col md:flex-row min-h-screen">
+  
+  <nav id="menuLateral" 
+       class="bg-white shadow-lg w-64 h-screen fixed top-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-50"
+       >
+    <div class="p-6">
+      <h2 class="text-xl font-bold mb-4">Menu</h2>
+      <ul class="space-y-2">
+        <li><a href="{{ url_for('index') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Início</a></li>
+        <li><a href="{{ url_for('gerenciar_receitas') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Receita</a></li>
+        <li><a href="{{ url_for('gerenciar_despesas') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Despesa</a></li>
+        <li><a href="{{ url_for('gerenciar_investimentos') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Investimento</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  
+  <div id="mainContent" class="flex-1 ml-0 md:ml-64 p-6 transition-all duration-300">
+
+    <header class="gradient-bg text-white shadow-lg mb-6 sticky top-0 z-40">
+      <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center">
+          <button id="menuToggle" class="text-white focus:outline-none mr-4 md:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+              viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 6h16M4 12h16m-7 6h7"/>
+            </svg>
+          </button>
+          <img src="https://placehold.co/40x40/BFDBFE/1E3A8A?text=FP" alt="FinançaPro Logo" class="mr-3">
+          <h1 class="text-xl font-bold">FinançaPro</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="logout" class="bg-white text-blue-600 px-4 py-2 rounded-full font-medium hover:bg-blue-50 transition">Sair</a>
+        </div>
+      </div>
+    </header>
+
+    
+    <section class="py-16">
+      <div class="container mx-auto px-6">
+        <h2 class="text-2xl font-bold mb-8 text-center">Bem-vindo ao seu Dashboard Financeiro</h2>
+
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 mb-8">
+          <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+            <h3 class="text-xl font-bold mb-2">Saldo Disponível</h3>
+            <p class="text-3xl font-bold text-blue-600">R$ {{ saldo }}</p>
+          </div>
+          <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+            <h3 class="text-xl font-bold mb-2">Total Receitas</h3>
+            <p class="text-3xl font-bold text-green-600">R$ {{ total_receitas }}</p>
+          </div>
+          <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+            <h3 class="text-xl font-bold mb-2">Total Despesas</h3>
+            <p class="text-3xl font-bold text-red-600">R$ {{ total_despesas }}</p>
+          </div>
+        </div>
+
+        <!-- Botão para gerar relatórios financeiros -->
+        <div class="text-center mb-8">
+          <a href="{{ url_for('gerar_relatorio') }}" class="bg-blue-600 text-white px-6 py-3 rounded-full font-medium hover:bg-blue-700 transition">Gerar Relatório Financeiro</a>
+        </div>
+
+        
+        <h2 class="text-2xl font-bold mb-8 text-center">Análise Financeira</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+            <h3 class="text-xl font-bold mb-4">Receitas vs Despesas</h3>
+            <div class="chart-container">
+              <canvas id="financeChart"></canvas>
+            </div>
+          </div>
+          <div class="bg-white p-6 rounded-xl shadow-sm transition card-hover">
+            <h3 class="text-xl font-bold mb-4">Distribuição de Gastos</h3>
+            <div class="chart-container">
+              <canvas id="expenseDistributionChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        
+        <h2 class="text-2xl font-bold mb-8 text-center">Últimas Transações</h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="bg-blue-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              {% for transaction in transactions %}
+              <tr class="transaction-animation hover:bg-blue-50">
+                <td class="px-6 py-4 whitespace-nowrap">{{ transaction.data }}</td>
+                <td class="px-6 py-4 whitespace-nowrap font-medium">{{ transaction.descricao }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">{{ transaction.categoria }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-green-600 font-medium">R$ {{ transaction.valor }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Concluído</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    
+    <footer class="bg-gray-900 text-white py-12">
+      <div class="container mx-auto px-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div>
+            <img src="https://placehold.co/80x40/BFDBFE/1E3A8A?text=FinPro&fontSize=20" alt="FinançaPro Logo" class="mb-4">
+            <p class="text-gray-400">Plataforma de gestão financeira para pessoas e empresas que buscam controle e crescimento.</p>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold mb-4">Soluções</h3>
+            <ul class="space-y-2">
+              <li><a href="#" class="text-gray-400 hover:text-white transition">Pessoal</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white transition">Pequenas Empresas</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white transition">Startups</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white transition">Consultorias</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold mb-4">Contato</h3>
+            <ul class="space-y-2 text-gray-400">
+              <li>contato@financapro.com.br</li>
+              <li>(11) 99999-9990</li>
+              <li>São Paulo - SP</li>
+            </ul>
+          </div>
+        </div>
+        <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+          <p>© 2025 FinançaPro. Todos os direitos reservados.</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  
+  <script>
+    const menuToggle = document.getElementById('menuToggle');
+    const menu = document.getElementById('menuLateral');
+    const mainContent = document.getElementById('mainContent');
+
+    menuToggle.addEventListener('click', () => {
+      if (menu.classList.contains('-translate-x-full')) {
+        menu.classList.remove('-translate-x-full');
+        menu.classList.add('translate-x-0');
+        mainContent.classList.add('ml-64');
+      } else {
+        menu.classList.remove('translate-x-0');
+        menu.classList.add('-translate-x-full');
+        mainContent.classList.remove('ml-64');
+      }
+    });
+
+    // charts
+    document.addEventListener('DOMContentLoaded', () => {
+      const financeCtx = document.getElementById('financeChart').getContext('2d');
+      new Chart(financeCtx, {
+        type: 'bar',
+        data: {
+          labels: JSON.parse('{{ meses | tojson | safe }}'),
+          datasets: [
+            {
+              label: 'Receitas',
+              data: JSON.parse('{{ valores_receitas | tojson | safe }}'),
+              backgroundColor: 'rgba(37, 99, 235, 0.7)',
+              borderColor: 'rgba(37, 99, 235, 1)',
+              borderWidth: 1
+            },
+            {
+              label: 'Despesas',
+              data: JSON.parse('{{ valores_despesas | tojson | safe }}'),
+              backgroundColor: 'rgba(239, 68, 68, 0.7)',
+              borderColor: 'rgba(239, 68, 68, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'top' }
+          }
+        }
+      });
+
+      const expenseDistributionCtx = document.getElementById('expenseDistributionChart').getContext('2d');
+      new Chart(expenseDistributionCtx, {
+        type: 'pie',
+        data: {
+          labels: JSON.parse('{{ categorias | tojson | safe }}'),
+          datasets: [{
+            data: JSON.parse('{{ valores_categorias | tojson | safe }}'),
+            backgroundColor: [
+              'rgba(37, 99, 235, 0.7)',
+              'rgba(239, 68, 68, 0.7)',
+              'rgba(34, 197, 94, 0.7)',
+              'rgba(250, 204, 21, 0.7)',
+              'rgba(156, 163, 175, 0.7)',
+              'rgba(139, 92, 246, 0.7)',
+              'rgba(253, 224, 71, 0.7)'
+            ],
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'top' }
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

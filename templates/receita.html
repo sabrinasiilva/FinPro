@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FinançaPro - Gerenciar Receitas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #1e40af;
+            --accent: #3b82f6;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .transaction-animation {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans antialiased flex">
+    
+    <nav id="menuLateral" class="bg-white shadow-lg w-64 h-screen fixed transform -translate-x-full transition-transform duration-300 ease-in-out z-50">
+        <div class="p-6">
+            <h2 class="text-xl font-bold mb-4">Menu</h2>
+            <ul class="space-y-2">
+                <li><a href="{{ url_for('index') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Início</a></li>
+                <li><a href="{{ url_for('gerenciar_despesas') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Gerenciar Despesas</a></li>
+                <li><a href="{{ url_for('gerenciar_investimentos') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Investimento</a></li>
+                <li><a href="{{ url_for('logout') }}" class="block p-2 text-gray-700 hover:bg-gray-200 rounded transition">Sair</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div id="mainContent" class="flex-1 ml-0 p-6 transition-all duration-300">
+        <header class="gradient-bg text-white shadow-lg mb-6">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center">
+                    <button id="menuToggle" class="text-white focus:outline-none mr-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>
+                        </svg>
+                    </button>
+                    <img src="https://placehold.co/40x40/BFDBFE/1E3A8A?text=FP" alt="FinançaPro Logo" class="mr-3">
+                    <h1 class="text-xl font-bold">FinançaPro</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="{{ url_for('logout') }}" class="bg-white text-blue-600 px-4 py-2 rounded-full font-medium hover:bg-blue-50 transition">Sair</a>
+                </div>
+            </div>
+        </header>
+
+        <section class="py-16">
+            <div class="container mx-auto px-6">
+                <h2 class="text-2xl font-bold mb-8 text-center">Gerenciar Receitas</h2>
+
+                <form method="POST" class="mb-8" id="addForm">
+                    <input type="number" step="0.01" name="valor" placeholder="Valor (ex: 100.00)" required class="border border-gray-300 rounded p-2 mr-2">
+                    <input type="text" name="categoria" placeholder="Categoria" class="border border-gray-300 rounded p-2 mr-2">
+                    <input type="text" name="descricao" placeholder="Descrição" class="border border-gray-300 rounded p-2 mr-2">
+                    <input type="date" name="data" required class="border border-gray-300 rounded p-2 mr-2">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Adicionar Receita</button>
+                </form>
+
+                <h2 class="text-2xl font-bold mb-8 text-center">Lista de Receitas</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                        <thead class="bg-blue-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for receita in receitas %}
+                            <tr class="transaction-animation hover:bg-blue-50">
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">{{ receita.descricao }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ receita.categoria }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-green-600 font-medium">R$ {{ receita.valor }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ receita.data }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <button
+                                        type="button"
+                                        class="text-blue-600 hover:underline mr-3"
+                                        data-id="{{ receita.id }}"
+                                        data-descricao="{{ receita.descricao }}"
+                                        data-categoria="{{ receita.categoria }}"
+                                        data-valor="{{ receita.valor }}"
+                                        data-data="{{ receita.data }}"
+                                        onclick="openEditModal(this)">Editar</button>
+                                    <form action="{{ url_for('delete_receita', id=receita.id) }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="text-red-600 hover:underline">Deletar</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <footer class="bg-gray-900 text-white py-12">
+            <div class="container mx-auto px-6 text-center">
+                <p>© 2025 FinançaPro. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modal Edição -->
+    <div id="editModal" class="fixed inset-0 hidden bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 class="text-xl font-bold mb-4">Editar Receita</h2>
+            <form method="POST" id="editForm">
+                <input type="hidden" name="id" id="editId">
+                <div class="mb-4">
+                    <label class="block mb-1 font-medium">Descrição</label>
+                    <input type="text" name="descricao" id="editDescricao" class="border border-gray-300 rounded p-2 w-full" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 font-medium">Categoria</label>
+                    <input type="text" name="categoria" id="editCategoria" class="border border-gray-300 rounded p-2 w-full">
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 font-medium">Valor</label>
+                    <input type="number" step="0.01" name="valor" id="editValor" class="border border-gray-300 rounded p-2 w-full" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 font-medium">Data</label>
+                    <input type="date" name="data" id="editData" class="border border-gray-300 rounded p-2 w-full" required>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-300 rounded">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const menuToggle = document.getElementById('menuToggle');
+        const menu = document.getElementById('menuLateral');
+        const mainContent = document.getElementById('mainContent');
+
+        menuToggle.addEventListener('click', () => {
+            if (menu.classList.contains('-translate-x-full')) {
+                menu.classList.remove('-translate-x-full');
+                menu.classList.add('translate-x-0');
+                mainContent.classList.add('ml-64');
+            } else {
+                menu.classList.remove('translate-x-0');
+                menu.classList.add('-translate-x-full');
+                mainContent.classList.remove('ml-64');
+            }
+        });
+
+        function openEditModal(button) {
+            document.getElementById('editId').value = button.dataset.id;
+            document.getElementById('editDescricao').value = button.dataset.descricao;
+            document.getElementById('editCategoria').value = button.dataset.categoria;
+            document.getElementById('editValor').value = button.dataset.valor;
+            document.getElementById('editData').value = button.dataset.data;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
