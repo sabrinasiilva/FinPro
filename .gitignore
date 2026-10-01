@@ -8,5 +8,6 @@ venv/
 .venv/
 .pytest_cache/
 
-# Variáveis de ambiente
+# Variáveis de ambiente e chave gerada localmente
 .env
+.secret_key

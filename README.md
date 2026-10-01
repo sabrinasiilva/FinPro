@@ -40,7 +40,7 @@ Acesse http://127.0.0.1:5000. O banco (`database.db`) é criado na primeira exec
 
 | Variável | Para quê | Padrão |
 |---|---|---|
-| `SECRET_KEY` | Assina a sessão de login. **Defina em produção.** | Gerada a cada vez que o app sobe |
+| `SECRET_KEY` | Assina a sessão de login. **Defina em produção.** | Gerada uma vez e salva em `.secret_key` |
 | `DATABASE_PATH` | Caminho do arquivo SQLite | `database.db` na pasta do projeto |
 | `FINPRO_DEMO` | `0` desliga a conta demo | `1` |
 | `FLASK_DEBUG` | `1` liga o modo debug ao rodar `python app.py` | Desligado |

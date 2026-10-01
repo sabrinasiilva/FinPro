@@ -10,9 +10,30 @@ from io import BytesIO
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def carregar_secret_key():
+    """Usa a SECRET_KEY do ambiente. Sem ela, gera uma vez e guarda em arquivo,
+    para todos os processos do servidor assinarem o login com a mesma chave."""
+    chave = os.environ.get('SECRET_KEY')
+    if chave:
+        return chave
+
+    caminho = os.path.join(BASE_DIR, '.secret_key')
+    if not os.path.exists(caminho):
+        temporario = f'{caminho}.{os.getpid()}'
+        with open(temporario, 'w') as arquivo:
+            arquivo.write(secrets.token_hex(32))
+        try:
+            os.link(temporario, caminho)  # só o primeiro processo consegue criar
+        except FileExistsError:
+            pass
+        finally:
+            os.remove(temporario)
+    with open(caminho) as arquivo:
+        return arquivo.read().strip()
+
 app = Flask(__name__)
-# Em produção a chave vem da variável de ambiente SECRET_KEY (configurada no Render)
-app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+# Em produção, defina SECRET_KEY nas variáveis de ambiente do Render
+app.secret_key = carregar_secret_key()
 app.config['DATABASE'] = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, 'database.db'))
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
