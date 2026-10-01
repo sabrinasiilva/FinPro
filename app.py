@@ -3,8 +3,8 @@ import os
 import secrets
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
-import calendar
+from datetime import date, datetime
+from functools import wraps
 import pandas as pd
 from io import BytesIO
 
@@ -14,6 +14,18 @@ app = Flask(__name__)
 # Em produção a chave vem da variável de ambiente SECRET_KEY (configurada no Render)
 app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 app.config['DATABASE'] = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, 'database.db'))
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+MESES = [
+    ('01', 'Janeiro'), ('02', 'Fevereiro'), ('03', 'Março'), ('04', 'Abril'),
+    ('05', 'Maio'), ('06', 'Junho'), ('07', 'Julho'), ('08', 'Agosto'),
+    ('09', 'Setembro'), ('10', 'Outubro'), ('11', 'Novembro'), ('12', 'Dezembro'),
+]
+MESES_ABREV = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+# Conta aberta para quem quiser testar o app sem se cadastrar
+DEMO_USUARIO = 'demo'
+DEMO_SENHA = 'demo123'
 
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -68,6 +80,129 @@ def init_db():
     conn.commit()
     conn.close()
 
+
+# ---------------------------
+# Conta demo
+# ---------------------------
+def mes_relativo(meses_atras):
+    """Retorna (ano, mes) de N meses atrás a partir de hoje."""
+    hoje = date.today()
+    total = hoje.year * 12 + (hoje.month - 1) - meses_atras
+    return total // 12, total % 12 + 1
+
+def criar_conta_demo():
+    """Cria a conta demo com lançamentos dos últimos 6 meses. Se ela já existe, não faz nada."""
+    conn = get_db_connection()
+    if conn.execute('SELECT 1 FROM usuarios WHERE username = ?', (DEMO_USUARIO,)).fetchone():
+        conn.close()
+        return
+
+    try:
+        cursor = conn.execute(
+            'INSERT INTO usuarios (username, senha_hash) VALUES (?, ?)',
+            (DEMO_USUARIO, generate_password_hash(DEMO_SENHA))
+        )
+    except sqlite3.IntegrityError:
+        # outro processo do servidor criou a conta ao mesmo tempo
+        conn.close()
+        return
+    user_id = cursor.lastrowid
+
+    hoje = date.today()
+    receitas = []
+    despesas = []
+    for meses_atras in range(5, -1, -1):
+        ano, mes = mes_relativo(meses_atras)
+
+        def dia(d):
+            # no mês atual, nada é lançado depois de hoje
+            if (ano, mes) == (hoje.year, hoje.month):
+                d = min(d, hoje.day)
+            return date(ano, mes, d).isoformat()
+
+        receitas.append((4500.00, 'Salário', 'Salário mensal', dia(5)))
+        if meses_atras % 2 == 0:
+            receitas.append((850.00, 'Freelance', 'Site para cliente', dia(18)))
+
+        despesas += [
+            (1500.00, 'Moradia', 'Aluguel', dia(10)),
+            (620.00 + meses_atras * 35, 'Mercado', 'Compras do mês', dia(12)),
+            (180.00, 'Transporte', 'Bilhete único', dia(3)),
+            (99.90, 'Contas', 'Internet', dia(15)),
+            (210.00 + meses_atras * 20, 'Lazer', 'Cinema e restaurantes', dia(22)),
+        ]
+
+    conn.executemany(
+        'INSERT INTO receitas (valor, categoria, descricao, data, user_id) VALUES (?, ?, ?, ?, ?)',
+        [r + (user_id,) for r in receitas]
+    )
+    conn.executemany(
+        'INSERT INTO despesas (valor, categoria, descricao, data, user_id) VALUES (?, ?, ?, ?, ?)',
+        [d + (user_id,) for d in despesas]
+    )
+
+    investimentos = [
+        ('Tesouro', 'Tesouro Selic 2029', 2, 14850.00, 15240.00, 5, 'Reserva de emergência'),
+        ('Ações', 'ITSA4', 100, 9.80, 10.65, 4, 'Foco em dividendos'),
+        ('Fundos', 'MXRF11', 150, 10.20, 9.95, 2, 'Renda mensal'),
+        ('CDB', 'CDB 110% CDI', 1, 2000.00, 2085.40, 1, 'Liquidez diária'),
+    ]
+    for tipo, ativo, qtd, unitario, atual, meses_atras, descricao in investimentos:
+        ano, mes = mes_relativo(meses_atras)
+        conn.execute('''
+            INSERT INTO investimentos (user_id, tipo, ativo, quantidade, valor_unitario, valor_atual, data_compra, descricao)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (user_id, tipo, ativo, qtd, unitario, atual, date(ano, mes, 8).isoformat(), descricao))
+
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------
+# Formatação nos templates
+# ---------------------------
+@app.template_filter('brl')
+def formatar_brl(valor):
+    """1234.5 -> '1.234,50'"""
+    texto = f'{valor or 0:,.2f}'
+    return texto.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+@app.template_filter('data_br')
+def formatar_data(valor):
+    """'2025-10-14' -> '14/10/2025'"""
+    try:
+        return datetime.strptime(str(valor)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
+    except ValueError:
+        return valor
+
+@app.context_processor
+def variaveis_dos_templates():
+    return {
+        'meses_nomes': MESES,
+        'demo_ativo': os.environ.get('FINPRO_DEMO', '1') == '1',
+        'demo_usuario': DEMO_USUARIO,
+        'demo_senha': DEMO_SENHA,
+    }
+
+
+# ---------------------------
+# Autenticação
+# ---------------------------
+def login_obrigatorio(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return view(*args, **kwargs)
+    return wrapper
+
+def voltar(padrao):
+    """Volta para a página de onde o formulário veio (mantendo o filtro), ou para a padrão."""
+    origem = request.referrer
+    if origem and origem.startswith(request.host_url):
+        return redirect(origem)
+    return redirect(padrao)
+
 @app.route('/')
 def inicial_pag():
     return render_template('inicial_pag.html')
@@ -75,7 +210,7 @@ def inicial_pag():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['username']
+        username = request.form['username'].strip()
         senha = request.form['senha']
         senha_hash = generate_password_hash(senha)
 
@@ -98,7 +233,7 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        username = request.form['username'].strip()
         senha = request.form['senha']
 
         conn = get_db_connection()
@@ -108,9 +243,9 @@ def login():
         conn.close()
 
         if user and check_password_hash(user['senha_hash'], senha):
+            session.clear()
             session['user_id'] = user['id']
             session['username'] = user['username']
-            flash('Login efetuado com sucesso!')
             return redirect(url_for('index'))
         else:
             flash('Usuário ou senha incorretos.')
@@ -121,171 +256,110 @@ def login():
 def logout():
     session.clear()
     flash('Você saiu da conta.')
-    return redirect(url_for('inicial_pag'))
+    return redirect(url_for('login'))
 
 
 # ---------------------------
-# Helper: parse month/year from request (default to current)
+# Filtro por período
 # ---------------------------
-def get_mes_ano_from_request():
-    """Retorna (mes, ano) em strings ('01'..'12', '2025'), ou None se 'Todos' foi selecionado."""
+def get_mes_ano_from_request(padrao_mes_atual=True):
+    """Retorna (mes, ano) como '01'..'12' e '2025', ou None para "Todos".
+
+    Sem nenhum filtro na URL, usa o mês atual (ou tudo, se padrao_mes_atual=False).
+    """
     mes = request.args.get('mes')
     ano = request.args.get('ano')
 
-    # Se nenhum foi enviado, por padrão usamos mês e ano atuais
     if mes is None and ano is None:
-        hoje = datetime.now()
-        mes = hoje.strftime('%m')
-        ano = hoje.strftime('%Y')
-    # Se um dos dois vier como string vazia (""), interpretamos como 'Todos' -> manter None
-    if mes == "":
-        mes = None
-    if ano == "":
-        ano = None
+        if not padrao_mes_atual:
+            return None, None
+        hoje = date.today()
+        return hoje.strftime('%m'), hoje.strftime('%Y')
 
+    # string vazia ("Todos") ou valor inválido vira None
+    mes = mes if mes in dict(MESES) else None
+    ano = ano if ano and ano.isdigit() and len(ano) == 4 else None
     return mes, ano
 
-def gerar_lista_anos():
-    """Retorna lista de anos disponíveis nas tabelas receitas e despesas (strings), ordenada desc."""
+def filtro_periodo(user_id, mes, ano, coluna='data'):
+    """Monta o WHERE com o usuário e o período. `coluna` é sempre um nome fixo do código."""
+    where = 'user_id = ?'
+    params = [user_id]
+    if mes:
+        where += f" AND strftime('%m', {coluna}) = ?"
+        params.append(mes)
+    if ano:
+        where += f" AND strftime('%Y', {coluna}) = ?"
+        params.append(ano)
+    return where, params
+
+def gerar_lista_anos(user_id):
+    """Anos que têm lançamentos do usuário, mais o ano atual, do mais recente pro mais antigo."""
     conn = get_db_connection()
-    anos_raw = conn.execute("""
-        SELECT DISTINCT strftime('%Y', data) as ano FROM receitas
+    linhas = conn.execute('''
+        SELECT strftime('%Y', data) AS ano FROM receitas WHERE user_id = ?
         UNION
-        SELECT DISTINCT strftime('%Y', data) FROM despesas
-        ORDER BY ano DESC
-    """).fetchall()
+        SELECT strftime('%Y', data) FROM despesas WHERE user_id = ?
+        UNION
+        SELECT strftime('%Y', data_compra) FROM investimentos WHERE user_id = ?
+    ''', (user_id, user_id, user_id)).fetchall()
     conn.close()
-    anos = [row['ano'] for row in anos_raw if row['ano']]
-    return anos
+    anos = {linha['ano'] for linha in linhas if linha['ano']}
+    anos.add(str(date.today().year))
+    return sorted(anos, reverse=True)
 
 
 # ---------------------------
 # DASHBOARD (index)
 # ---------------------------
 @app.route('/dashboard')
+@login_obrigatorio
 def index():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
     user_id = session['user_id']
-
-    # Pega filtros (mes, ano). Se o usuário não passou nada, por padrão usamos mês e ano atuais.
     mes, ano = get_mes_ano_from_request()
+    where, params = filtro_periodo(user_id, mes, ano)
 
     conn = get_db_connection()
 
-    # BUILD queries com filtros opcionais
-    # Receitas totais (filtradas)
-    params_receitas = [user_id]
-    where_receitas = "user_id = ?"
-    if mes:
-        where_receitas += " AND strftime('%m', data) = ?"
-        params_receitas.append(mes)
-    if ano:
-        where_receitas += " AND strftime('%Y', data) = ?"
-        params_receitas.append(ano)
-
     total_receitas = conn.execute(
-        f"SELECT IFNULL(SUM(valor), 0) FROM receitas WHERE {where_receitas}",
-        tuple(params_receitas)
+        f'SELECT IFNULL(SUM(valor), 0) FROM receitas WHERE {where}', params
     ).fetchone()[0]
-
-    # Despesas totais (filtradas)
-    params_despesas = [user_id]
-    where_despesas = "user_id = ?"
-    if mes:
-        where_despesas += " AND strftime('%m', data) = ?"
-        params_despesas.append(mes)
-    if ano:
-        where_despesas += " AND strftime('%Y', data) = ?"
-        params_despesas.append(ano)
-
     total_despesas = conn.execute(
-        f"SELECT IFNULL(SUM(valor), 0) FROM despesas WHERE {where_despesas}",
-        tuple(params_despesas)
+        f'SELECT IFNULL(SUM(valor), 0) FROM despesas WHERE {where}', params
     ).fetchone()[0]
-
     saldo = total_receitas - total_despesas
 
-    # Para os gráficos de evolução por mês: pegamos por mês dentro do ano selecionado (se ano definido)
-    receitas_por_mes = []
-    despesas_por_mes = []
-    meses = []
-    valores_receitas = []
-    valores_despesas = []
-
-    # Se o ano for None -> podemos pegar últimos meses disponíveis combinados
-    if ano:
-        receitas_por_mes = conn.execute('''
+    # Evolução mês a mês dentro do ano escolhido (ou somando todos os anos, se "Todos")
+    where_ano, params_ano = filtro_periodo(user_id, None, ano)
+    por_mes = {}
+    for tabela in ('receitas', 'despesas'):
+        linhas = conn.execute(f'''
             SELECT strftime('%m', data) AS mes, SUM(valor) AS total
-            FROM receitas
-            WHERE user_id = ? AND strftime('%Y', data) = ?
+            FROM {tabela} WHERE {where_ano}
             GROUP BY mes
-            ORDER BY mes
-        ''', (user_id, ano)).fetchall()
+        ''', params_ano).fetchall()
+        for linha in linhas:
+            if linha['mes']:
+                por_mes.setdefault(linha['mes'], {'receitas': 0, 'despesas': 0})[tabela] = linha['total']
 
-        despesas_por_mes = conn.execute('''
-            SELECT strftime('%m', data) AS mes, SUM(valor) AS total
-            FROM despesas
-            WHERE user_id = ? AND strftime('%Y', data) = ?
-            GROUP BY mes
-            ORDER BY mes
-        ''', (user_id, ano)).fetchall()
+    meses_nums = sorted(por_mes)
+    meses = [MESES_ABREV[int(m) - 1] for m in meses_nums]
+    valores_receitas = [round(por_mes[m]['receitas'], 2) for m in meses_nums]
+    valores_despesas = [round(por_mes[m]['despesas'], 2) for m in meses_nums]
 
-        meses_nums = sorted(set([row['mes'] for row in receitas_por_mes] + [row['mes'] for row in despesas_por_mes]))
-        meses = [calendar.month_abbr[int(m)] for m in meses_nums]
-        for m in meses_nums:
-            total_r = next((row['total'] for row in receitas_por_mes if row['mes'] == m), 0)
-            total_d = next((row['total'] for row in despesas_por_mes if row['mes'] == m), 0)
-            valores_receitas.append(total_r)
-            valores_despesas.append(total_d)
-    else:
-        # ano == None (Todos): agregamos por mês em todos os anos
-        receitas_por_mes = conn.execute('''
-            SELECT strftime('%m', data) AS mes, SUM(valor) AS total
-            FROM receitas
-            WHERE user_id = ?
-            GROUP BY mes
-            ORDER BY mes
-        ''', (user_id,)).fetchall()
-
-        despesas_por_mes = conn.execute('''
-            SELECT strftime('%m', data) AS mes, SUM(valor) AS total
-            FROM despesas
-            WHERE user_id = ?
-            GROUP BY mes
-            ORDER BY mes
-        ''', (user_id,)).fetchall()
-
-        meses_nums = sorted(set([row['mes'] for row in receitas_por_mes] + [row['mes'] for row in despesas_por_mes]))
-        meses = [calendar.month_abbr[int(m)] for m in meses_nums]
-        for m in meses_nums:
-            total_r = next((row['total'] for row in receitas_por_mes if row['mes'] == m), 0)
-            total_d = next((row['total'] for row in despesas_por_mes if row['mes'] == m), 0)
-            valores_receitas.append(total_r)
-            valores_despesas.append(total_d)
-
-    # Últimas transações (sempre filtradas por user; se desejar, poderia também respeitar mes/ano)
-    transactions = conn.execute('''
-        SELECT data, descricao, categoria, valor, 'Receita' as tipo FROM receitas WHERE user_id = ?
+    transactions = conn.execute(f'''
+        SELECT data, descricao, categoria, valor, 'Receita' AS tipo FROM receitas WHERE {where}
         UNION ALL
-        SELECT data, descricao, categoria, valor, 'Despesa' as tipo FROM despesas WHERE user_id = ?
+        SELECT data, descricao, categoria, valor, 'Despesa' AS tipo FROM despesas WHERE {where}
         ORDER BY data DESC LIMIT 10
-    ''', (user_id, user_id)).fetchall()
+    ''', params + params).fetchall()
 
-    # Despesas por categoria (dentro do filtro mes/ano)
     despesas_por_categoria = conn.execute(f'''
         SELECT categoria, SUM(valor) AS total
-        FROM despesas
-        WHERE {where_despesas}
+        FROM despesas WHERE {where}
         GROUP BY categoria
-    ''', tuple(params_despesas)).fetchall()
-
-    categorias = [row['categoria'] for row in despesas_por_categoria]
-    valores_categorias = [row['total'] for row in despesas_por_categoria]
-
-    # lista de anos para o select
-    anos = gerar_lista_anos()
+        ORDER BY total DESC
+    ''', params).fetchall()
 
     conn.close()
 
@@ -298,224 +372,194 @@ def index():
         meses=meses,
         valores_receitas=valores_receitas,
         valores_despesas=valores_despesas,
-        categorias=categorias,
-        valores_categorias=valores_categorias,
+        categorias=[linha['categoria'] for linha in despesas_por_categoria],
+        valores_categorias=[round(linha['total'], 2) for linha in despesas_por_categoria],
         mes=mes,
         ano=ano,
-        anos=anos
+        anos=gerar_lista_anos(user_id)
     )
 
 
 # ---------------------------
-# RECEITAS (list / create / update / delete) com filtro por mes/ano
+# RECEITAS e DESPESAS (mesma estrutura, tabelas diferentes)
 # ---------------------------
-@app.route('/receitas', methods=['GET', 'POST'])
-def gerenciar_receitas():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+def ler_lancamento(form):
+    """Lê os campos de uma receita/despesa. Retorna None se o valor ou a data forem inválidos."""
+    try:
+        valor = float(form['valor'].replace(',', '.'))
+        data = datetime.strptime(form['data'], '%Y-%m-%d').date().isoformat()
+    except (KeyError, ValueError):
+        return None
+    if valor <= 0:
+        return None
+    return {
+        'valor': valor,
+        'categoria': form.get('categoria', '').strip(),
+        'descricao': form.get('descricao', '').strip(),
+        'data': data,
+    }
 
+def listar_lancamentos(tabela, user_id, mes, ano):
+    where, params = filtro_periodo(user_id, mes, ano)
+    conn = get_db_connection()
+    itens = conn.execute(f'SELECT * FROM {tabela} WHERE {where} ORDER BY data DESC', params).fetchall()
+    total = conn.execute(f'SELECT IFNULL(SUM(valor), 0) FROM {tabela} WHERE {where}', params).fetchone()[0]
+    conn.close()
+    return itens, total
+
+def inserir_lancamento(tabela, user_id, lancamento):
+    conn = get_db_connection()
+    conn.execute(
+        f'INSERT INTO {tabela} (valor, categoria, descricao, data, user_id) VALUES (?, ?, ?, ?, ?)',
+        (lancamento['valor'], lancamento['categoria'], lancamento['descricao'], lancamento['data'], user_id)
+    )
+    conn.commit()
+    conn.close()
+
+def atualizar_lancamento(tabela, user_id, id, lancamento):
+    conn = get_db_connection()
+    conn.execute(
+        f'UPDATE {tabela} SET valor = ?, categoria = ?, descricao = ?, data = ? WHERE id = ? AND user_id = ?',
+        (lancamento['valor'], lancamento['categoria'], lancamento['descricao'], lancamento['data'], id, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+def excluir_lancamento(tabela, user_id, id):
+    conn = get_db_connection()
+    conn.execute(f'DELETE FROM {tabela} WHERE id = ? AND user_id = ?', (id, user_id))
+    conn.commit()
+    conn.close()
+
+@app.route('/receitas', methods=['GET', 'POST'])
+@login_obrigatorio
+def gerenciar_receitas():
     user_id = session['user_id']
 
     if request.method == 'POST':
-        valor = float(request.form['valor'])
-        categoria = request.form['categoria']
-        descricao = request.form['descricao']
-        data = request.form['data']
+        lancamento = ler_lancamento(request.form)
+        if lancamento:
+            inserir_lancamento('receitas', user_id, lancamento)
+            flash('Receita adicionada.')
+        else:
+            flash('Confira o valor e a data da receita.')
+        return redirect(url_for('gerenciar_receitas', **request.args))
 
-        conn = get_db_connection()
-        conn.execute(
-            'INSERT INTO receitas (valor, categoria, descricao, data, user_id) VALUES (?, ?, ?, ?, ?)',
-            (valor, categoria, descricao, data, user_id)
-        )
-        conn.commit()
-        conn.close()
-        return redirect(url_for('gerenciar_receitas'))
-
-    # GET: lista com filtro
     mes, ano = get_mes_ano_from_request()
-    conn = get_db_connection()
-
-    params = [user_id]
-    where = "user_id = ?"
-    if mes:
-        where += " AND strftime('%m', data) = ?"
-        params.append(mes)
-    if ano:
-        where += " AND strftime('%Y', data) = ?"
-        params.append(ano)
-
-    receitas = conn.execute(f'SELECT * FROM receitas WHERE {where} ORDER BY data DESC', tuple(params)).fetchall()
-
-    # Totais para exibição
-    total_receitas = conn.execute(f"SELECT IFNULL(SUM(valor), 0) FROM receitas WHERE {where}", tuple(params)).fetchone()[0]
-
-    anos = gerar_lista_anos()
-    conn.close()
-
-    return render_template('receita.html', receitas=receitas, total_receitas=total_receitas, mes=mes, ano=ano, anos=anos)
-
+    receitas, total_receitas = listar_lancamentos('receitas', user_id, mes, ano)
+    return render_template('receita.html', receitas=receitas, total_receitas=total_receitas,
+                           mes=mes, ano=ano, anos=gerar_lista_anos(user_id))
 
 @app.route('/receita/update', methods=['POST'])
+@login_obrigatorio
 def update_receita():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
-    user_id = session['user_id']
-    receita_id = request.form['id']
-    valor = float(request.form['valor'])
-    categoria = request.form['categoria']
-    descricao = request.form['descricao']
-    data = request.form['data']
-
-    conn = get_db_connection()
-    conn.execute(
-        'UPDATE receitas SET valor = ?, categoria = ?, descricao = ?, data = ? WHERE id = ? AND user_id = ?',
-        (valor, categoria, descricao, data, receita_id, user_id)
-    )
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for('gerenciar_receitas'))
-
+    lancamento = ler_lancamento(request.form)
+    if lancamento and request.form.get('id', '').isdigit():
+        atualizar_lancamento('receitas', session['user_id'], int(request.form['id']), lancamento)
+        flash('Receita atualizada.')
+    else:
+        flash('Confira o valor e a data da receita.')
+    return voltar(url_for('gerenciar_receitas'))
 
 @app.route('/receita/delete/<int:id>', methods=['POST'])
+@login_obrigatorio
 def delete_receita(id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    excluir_lancamento('receitas', session['user_id'], id)
+    flash('Receita excluída.')
+    return voltar(url_for('gerenciar_receitas'))
 
-    user_id = session['user_id']
-    conn = get_db_connection()
-    conn.execute(
-        'DELETE FROM receitas WHERE id = ? AND user_id = ?', (id, user_id)
-    )
-    conn.commit()
-    conn.close()
-    return redirect(url_for('gerenciar_receitas'))
-
-
-# ---------------------------
-# DESPESAS (list / create / update / delete) com filtro por mes/ano
-# ---------------------------
 @app.route('/despesas', methods=['GET', 'POST'])
+@login_obrigatorio
 def gerenciar_despesas():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
     user_id = session['user_id']
 
     if request.method == 'POST':
-        valor = float(request.form['valor'])
-        categoria = request.form['categoria']
-        descricao = request.form['descricao']
-        data = request.form['data']
-
-        conn = get_db_connection()
-        conn.execute(
-            'INSERT INTO despesas (valor, categoria, descricao, data, user_id) VALUES (?, ?, ?, ?, ?)',
-            (valor, categoria, descricao, data, user_id)
-        )
-        conn.commit()
-        conn.close()
-        return redirect(url_for('gerenciar_despesas'))
+        lancamento = ler_lancamento(request.form)
+        if lancamento:
+            inserir_lancamento('despesas', user_id, lancamento)
+            flash('Despesa adicionada.')
+        else:
+            flash('Confira o valor e a data da despesa.')
+        return redirect(url_for('gerenciar_despesas', **request.args))
 
     mes, ano = get_mes_ano_from_request()
-    conn = get_db_connection()
-
-    params = [user_id]
-    where = "user_id = ?"
-    if mes:
-        where += " AND strftime('%m', data) = ?"
-        params.append(mes)
-    if ano:
-        where += " AND strftime('%Y', data) = ?"
-        params.append(ano)
-
-    despesas = conn.execute(f'SELECT * FROM despesas WHERE {where} ORDER BY data DESC', tuple(params)).fetchall()
-    total_despesas = conn.execute(f"SELECT IFNULL(SUM(valor), 0) FROM despesas WHERE {where}", tuple(params)).fetchone()[0]
-
-    anos = gerar_lista_anos()
-    conn.close()
-
-    return render_template('despesa.html', despesas=despesas, total_despesas=total_despesas, mes=mes, ano=ano, anos=anos)
-
+    despesas, total_despesas = listar_lancamentos('despesas', user_id, mes, ano)
+    return render_template('despesa.html', despesas=despesas, total_despesas=total_despesas,
+                           mes=mes, ano=ano, anos=gerar_lista_anos(user_id))
 
 @app.route('/despesa/update', methods=['POST'])
+@login_obrigatorio
 def update_despesa():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
-    user_id = session['user_id']
-    despesa_id = request.form['id']
-    valor = float(request.form['valor'])
-    categoria = request.form['categoria']
-    descricao = request.form['descricao']
-    data = request.form['data']
-
-    conn = get_db_connection()
-    conn.execute(
-        'UPDATE despesas SET valor = ?, categoria = ?, descricao = ?, data = ? WHERE id = ? AND user_id = ?',
-        (valor, categoria, descricao, data, despesa_id, user_id)
-    )
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for('gerenciar_despesas'))
-
+    lancamento = ler_lancamento(request.form)
+    if lancamento and request.form.get('id', '').isdigit():
+        atualizar_lancamento('despesas', session['user_id'], int(request.form['id']), lancamento)
+        flash('Despesa atualizada.')
+    else:
+        flash('Confira o valor e a data da despesa.')
+    return voltar(url_for('gerenciar_despesas'))
 
 @app.route('/despesa/delete/<int:id>', methods=['POST'])
+@login_obrigatorio
 def delete_despesa(id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
-    user_id = session['user_id']
-    conn = get_db_connection()
-    conn.execute(
-        'DELETE FROM despesas WHERE id = ? AND user_id = ?', (id, user_id)
-    )
-    conn.commit()
-    conn.close()
-    return redirect(url_for('gerenciar_despesas'))
+    excluir_lancamento('despesas', session['user_id'], id)
+    flash('Despesa excluída.')
+    return voltar(url_for('gerenciar_despesas'))
 
 
 # ---------------------------
-# INVESTIMENTOS (list / create / edit / delete) COM FILTRO POR MÊS/ANO (data_compra)
+# INVESTIMENTOS
 # ---------------------------
+def ler_investimento(form):
+    """Lê os campos de um investimento. Retorna None se algum número ou a data forem inválidos."""
+    try:
+        investimento = {
+            'tipo': form['tipo'].strip(),
+            'ativo': form['ativo'].strip(),
+            'quantidade': int(form['quantidade']),
+            'valor_unitario': float(form['valor_unitario'].replace(',', '.')),
+            'valor_atual': float(form['valor_atual'].replace(',', '.')),
+            'data_compra': datetime.strptime(form['data_compra'], '%Y-%m-%d').date().isoformat(),
+            'descricao': form.get('descricao', '').strip(),
+        }
+    except (KeyError, ValueError):
+        return None
+    if not investimento['tipo'] or not investimento['ativo']:
+        return None
+    if investimento['quantidade'] <= 0 or investimento['valor_unitario'] <= 0 or investimento['valor_atual'] < 0:
+        return None
+    return investimento
+
 @app.route('/investimentos', methods=['GET', 'POST'])
+@login_obrigatorio
 def gerenciar_investimentos():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
     user_id = session['user_id']
-    conn = get_db_connection()
 
     if request.method == 'POST':
-        tipo = request.form['tipo']
-        ativo = request.form['ativo']
-        quantidade = int(request.form['quantidade'])
-        valor_unitario = float(request.form['valor_unitario'])
-        data_compra = request.form['data_compra']
-        valor_atual = float(request.form['valor_atual'])
-        descricao = request.form['descricao']
+        investimento = ler_investimento(request.form)
+        if investimento:
+            conn = get_db_connection()
+            conn.execute('''
+                INSERT INTO investimentos (user_id, tipo, ativo, quantidade, valor_unitario, valor_atual, data_compra, descricao)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, investimento['tipo'], investimento['ativo'], investimento['quantidade'],
+                  investimento['valor_unitario'], investimento['valor_atual'],
+                  investimento['data_compra'], investimento['descricao']))
+            conn.commit()
+            conn.close()
+            flash('Investimento adicionado.')
+        else:
+            flash('Confira os números e a data do investimento.')
+        return redirect(url_for('gerenciar_investimentos', **request.args))
 
-        conn.execute('''
-            INSERT INTO investimentos (user_id, tipo, ativo, quantidade, valor_unitario, valor_atual, data_compra, descricao)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (user_id, tipo, ativo, quantidade, valor_unitario, valor_atual, data_compra, descricao))
-        conn.commit()
+    # Aqui o padrão é mostrar a carteira inteira, não só o que foi comprado no mês
+    mes, ano = get_mes_ano_from_request(padrao_mes_atual=False)
+    where, params = filtro_periodo(user_id, mes, ano, coluna='data_compra')
 
-    # Filtragem por mes/ano sobre data_compra
-    mes, ano = get_mes_ano_from_request()
-
-    params = [user_id]
-    where = "user_id = ?"
-    if mes:
-        where += " AND strftime('%m', data_compra) = ?"
-        params.append(mes)
-    if ano:
-        where += " AND strftime('%Y', data_compra) = ?"
-        params.append(ano)
-
-    investimentos = conn.execute(f'SELECT * FROM investimentos WHERE {where} ORDER BY data_compra DESC', tuple(params)).fetchall()
+    conn = get_db_connection()
+    investimentos = conn.execute(
+        f'SELECT * FROM investimentos WHERE {where} ORDER BY data_compra DESC', params
+    ).fetchall()
+    conn.close()
 
     total_investido = sum(i['quantidade'] * i['valor_unitario'] for i in investimentos)
     valor_atual_total = sum(i['quantidade'] * i['valor_atual'] for i in investimentos)
@@ -523,120 +567,93 @@ def gerenciar_investimentos():
 
     tipos_dict = {}
     for i in investimentos:
-        valor_investido = i['quantidade'] * i['valor_unitario']
-        tipos_dict[i['tipo']] = tipos_dict.get(i['tipo'], 0) + valor_investido
-
-    tipos = list(tipos_dict.keys())
-    valores_tipo = [round(v, 2) for v in tipos_dict.values()]
+        tipos_dict[i['tipo']] = tipos_dict.get(i['tipo'], 0) + i['quantidade'] * i['valor_unitario']
 
     ativos = []
     valores_rent = []
     for i in investimentos:
+        investido = i['quantidade'] * i['valor_unitario']
+        atual = i['quantidade'] * i['valor_atual']
         ativos.append(i['ativo'])
-        investido = i['quantidade'] * i['valor_unitario'] if i['quantidade'] and i['valor_unitario'] else 0
-        valor_atual_calc = i['quantidade'] * i['valor_atual'] if i['quantidade'] and i['valor_atual'] else 0
-        rent = ((valor_atual_calc - investido) / investido * 100) if investido > 0 else 0
-        valores_rent.append(round(rent, 2))
-
-    anos = gerar_lista_anos()
-    conn.close()
+        valores_rent.append(round((atual - investido) / investido * 100, 2) if investido > 0 else 0)
 
     return render_template(
         'investimentos.html',
         investimentos=investimentos,
-        total_investido=round(total_investido, 2),
-        valor_atual=round(valor_atual_total, 2),
+        total_investido=total_investido,
+        valor_atual=valor_atual_total,
         rentabilidade=round(rentabilidade, 2),
-        tipos=tipos,
-        valores_tipo=valores_tipo,
+        tipos=list(tipos_dict.keys()),
+        valores_tipo=[round(v, 2) for v in tipos_dict.values()],
         ativos=ativos,
         valores_rent=valores_rent,
         mes=mes,
         ano=ano,
-        anos=anos
+        anos=gerar_lista_anos(user_id)
     )
 
-
 @app.route('/investimentos/editar/<int:id>', methods=['POST'])
+@login_obrigatorio
 def edit_investimento(id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    investimento = ler_investimento(request.form)
+    if not investimento:
+        flash('Confira os números e a data do investimento.')
+        return voltar(url_for('gerenciar_investimentos'))
 
     conn = get_db_connection()
-
-    tipo = request.form['tipo']
-    ativo = request.form['ativo']
-    quantidade = int(request.form['quantidade'])
-    valor_unitario = float(request.form['valor_unitario'])
-    valor_atual = float(request.form['valor_atual'])
-    data_compra = request.form['data_compra']
-    descricao = request.form['descricao']
-
     conn.execute('''
         UPDATE investimentos SET tipo = ?, ativo = ?, quantidade = ?, valor_unitario = ?, valor_atual = ?, data_compra = ?, descricao = ?
         WHERE id = ? AND user_id = ?
-    ''', (tipo, ativo, quantidade, valor_unitario, valor_atual, data_compra, descricao, id, session['user_id']))
+    ''', (investimento['tipo'], investimento['ativo'], investimento['quantidade'], investimento['valor_unitario'],
+          investimento['valor_atual'], investimento['data_compra'], investimento['descricao'], id, session['user_id']))
     conn.commit()
     conn.close()
 
-    flash('Investimento atualizado com sucesso!', 'success')
-    return redirect(url_for('gerenciar_investimentos'))
-
+    flash('Investimento atualizado.')
+    return voltar(url_for('gerenciar_investimentos'))
 
 @app.route('/delete_investimento/<int:id>', methods=['POST'])
+@login_obrigatorio
 def delete_investimento(id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
     conn = get_db_connection()
     conn.execute('DELETE FROM investimentos WHERE id = ? AND user_id = ?', (id, session['user_id']))
     conn.commit()
     conn.close()
-    flash('Investimento deletado com sucesso!', 'success')
-    return redirect(url_for('gerenciar_investimentos'))
+    flash('Investimento excluído.')
+    return voltar(url_for('gerenciar_investimentos'))
 
 
 # ---------------------------
-# Relatório Excel (mantive como antes)
+# Relatório Excel
 # ---------------------------
 @app.route('/gerar_relatorio')
+@login_obrigatorio
 def gerar_relatorio():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
     user_id = session['user_id']
     conn = get_db_connection()
 
-    # Consultar receitas
     receitas = pd.read_sql_query(
         'SELECT data, descricao, categoria, valor FROM receitas WHERE user_id = ? ORDER BY data DESC',
         conn, params=(user_id,)
     )
-
-    # Consultar despesas
     despesas = pd.read_sql_query(
         'SELECT data, descricao, categoria, valor FROM despesas WHERE user_id = ? ORDER BY data DESC',
         conn, params=(user_id,)
     )
-
-    # Consultar investimentos
     investimentos = pd.read_sql_query(
         'SELECT tipo, ativo, quantidade, valor_unitario, valor_atual, data_compra, descricao FROM investimentos WHERE user_id = ?',
         conn, params=(user_id,)
     )
-
     conn.close()
 
-    # Criar arquivo Excel em memória
+    # Arquivo Excel em memória, uma aba por tipo de lançamento
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         receitas.to_excel(writer, index=False, sheet_name='Receitas')
         despesas.to_excel(writer, index=False, sheet_name='Despesas')
         investimentos.to_excel(writer, index=False, sheet_name='Investimentos')
-
     output.seek(0)
 
-    # Enviar para download
     return send_file(
         output,
         as_attachment=True,
@@ -647,6 +664,8 @@ def gerar_relatorio():
 
 # Garante que o banco existe sempre que o app sobe (local ou no Render)
 init_db()
+if os.environ.get('FINPRO_DEMO', '1') == '1':
+    criar_conta_demo()
 
 if __name__ == '__main__':
     app.run(debug=os.environ.get('FLASK_DEBUG') == '1')

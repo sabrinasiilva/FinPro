@@ -55,7 +55,7 @@
                     </ul>
                 </nav>
                 <div class="flex items-center space-x-4">
-                    <a href="login" class="bg-white text-blue-600 px-4 py-2 rounded-full font-medium hover:bg-blue-50 transition">
+                    <a href="{{ url_for('login') }}" class="bg-white text-blue-600 px-4 py-2 rounded-full font-medium hover:bg-blue-50 transition">
                         Login
                     </a>
                     <button class="md:hidden">
@@ -287,10 +287,14 @@
     <section class="gradient-bg text-white py-16">
         <div class="container mx-auto px-6 text-center">
             <h2 class="text-3xl font-bold mb-6">Pronto para transformar sua vida financeira?</h2>
-            <p class="text-xl mb-8 max-w-2xl mx-auto">Junte-se a milhares de usuários que já estão no controle das suas finanças.</p>
+            <p class="text-xl mb-8 max-w-2xl mx-auto">Crie sua conta grátis ou entre com a conta demo para conhecer o app.</p>
             <a href="{{ url_for('register') }}" 
             class="bg-white text-blue-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-blue-50 transition shadow-lg inline-block text-center">
             Criar minha conta gratuita
+            </a>
+            <a href="{{ url_for('login') }}"
+            class="border-2 border-white text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-white hover:text-blue-600 transition inline-block text-center mt-4 sm:mt-0 sm:ml-4">
+            Testar com a conta demo
             </a>
 
         </div>

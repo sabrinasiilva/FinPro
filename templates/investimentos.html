@@ -171,20 +171,23 @@
             <div class="container mx-auto px-4 md:px-6">
                 <h2 class="text-xl md:text-2xl font-bold mb-6 md:mb-8 text-center">Gerenciar Investimentos</h2>
 
+                {% include "_mensagens.html" %}
+                {% include "_filtro_periodo.html" %}
+
                 <!-- Resumo -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm transition card-hover">
                         <h3 class="text-base md:text-lg font-bold mb-2">Total Investido</h3>
-                        <p class="text-2xl md:text-3xl font-bold text-green-600">R$ {{ total_investido|default('0,00') }}</p>
+                        <p class="text-2xl md:text-3xl font-bold text-green-600">R$ {{ total_investido|brl }}</p>
                     </div>
                     <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm transition card-hover">
                         <h3 class="text-base md:text-lg font-bold mb-2">Valor Atual</h3>
-                        <p class="text-2xl md:text-3xl font-bold text-blue-600">R$ {{ valor_atual|default('0,00') }}</p>
+                        <p class="text-2xl md:text-3xl font-bold text-blue-600">R$ {{ valor_atual|brl }}</p>
                     </div>
                     <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm transition card-hover">
                         <h3 class="text-base md:text-lg font-bold mb-2">Rentabilidade</h3>
                         <p class="text-2xl md:text-3xl font-bold {% if rentabilidade >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                            {{ rentabilidade|default('0,00') }}%
+                            {{ rentabilidade|brl }}%
                         </p>
                     </div>
                 </div>
@@ -285,12 +288,12 @@
                                 <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap font-medium text-sm">{{ investimento.ativo }}</td>
                                 <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">{{ investimento.tipo }}</td>
                                 <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden md:table-cell">{{ investimento.quantidade }}</td>
-                                <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden lg:table-cell">R$ {{ "%.2f"|format(investimento.valor_unitario) }}</td>
-                                <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">R$ {{ "%.2f"|format(investimento.valor_atual) }}</td>
+                                <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden lg:table-cell">R$ {{ investimento.valor_unitario|brl }}</td>
+                                <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">R$ {{ investimento.valor_atual|brl }}</td>
                                 <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden md:table-cell">
                                     {% set rent = ((investimento.valor_atual - investimento.valor_unitario) / investimento.valor_unitario) * 100 %}
                                     <span class="{% if rent >= 0 %}text-green-600{% else %}text-red-600{% endif %} font-medium">
-                                        {{ "%.2f"|format(rent) }}%
+                                        {{ rent|brl }}%
                                     </span>
                                 </td>
                                 <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap flex items-center space-x-2 md:space-x-4 text-xs md:text-sm flex-col sm:flex-row sm:space-x-2">
@@ -313,6 +316,10 @@
                                         <button type="submit" class="text-red-600 hover:underline text-xs md:text-sm w-full sm:w-auto text-center py-1">Deletar</button>
                                     </form>
                                 </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="px-6 py-6 text-center text-gray-500 text-sm">Nenhum investimento nesse período.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -390,10 +397,10 @@
     <!-- Scripts -->
     <script>
         // Variáveis do Flask (garanta que no seu Flask esteja passando as variáveis corretamente)
-        const tipos = JSON.parse('{{ tipos | tojson | safe }}');
-        const valoresTipo = JSON.parse('{{ valores_tipo | tojson | safe }}');
-        const ativos = JSON.parse('{{ ativos | tojson | safe }}');
-        const valoresRent = JSON.parse('{{ valores_rent | tojson | safe }}');
+        const tipos = {{ tipos | tojson }};
+        const valoresTipo = {{ valores_tipo | tojson }};
+        const ativos = {{ ativos | tojson }};
+        const valoresRent = {{ valores_rent | tojson }};
 
         // Toggle menu lateral
         const menuToggle = document.getElementById('menuToggle');

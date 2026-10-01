@@ -1,0 +1,19 @@
+<form method="get" class="flex flex-wrap items-center justify-center gap-2 mb-6 md:mb-8 text-sm">
+  <span class="text-gray-600 font-medium">Período:</span>
+  <select name="mes" aria-label="Mês" onchange="this.form.submit()" class="border border-gray-300 rounded-md p-2 bg-white">
+    <option value="" {% if not mes %}selected{% endif %}>Todos os meses</option>
+    {% for numero, nome in meses_nomes %}
+    <option value="{{ numero }}" {% if mes == numero %}selected{% endif %}>{{ nome }}</option>
+    {% endfor %}
+  </select>
+  <select name="ano" aria-label="Ano" onchange="this.form.submit()" class="border border-gray-300 rounded-md p-2 bg-white">
+    <option value="" {% if not ano %}selected{% endif %}>Todos os anos</option>
+    {% for a in anos %}
+    <option value="{{ a }}" {% if ano == a %}selected{% endif %}>{{ a }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit" class="border border-gray-300 rounded-md px-3 py-2 bg-white">Filtrar</button></noscript>
+  {% if total_periodo is defined %}
+  <span class="sm:ml-3 text-gray-700">Total no período: <strong class="{{ cor_total }}">R$ {{ total_periodo|brl }}</strong></span>
+  {% endif %}
+</form>

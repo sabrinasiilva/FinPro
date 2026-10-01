@@ -82,6 +82,8 @@
             <div class="container mx-auto px-4 md:px-6">
                 <h2 class="text-xl md:text-2xl font-bold mb-6 md:mb-8 text-center">Gerenciar Despesas</h2>
 
+                {% include "_mensagens.html" %}
+
                 <!-- Formulário para adicionar despesa -->
                 <form method="POST" class="mb-6 md:mb-8 flex flex-col sm:flex-row flex-wrap gap-3 md:gap-2">
                     <input type="number" step="0.01" name="valor" placeholder="Valor (ex: 100,00)" required class="border border-gray-300 rounded p-2 flex-1 min-w-0 text-sm">
@@ -92,6 +94,9 @@
                 </form>
 
                 <!-- Lista de Despesas -->
+                {% with total_periodo = total_despesas, cor_total = "text-red-600" %}
+                    {% include "_filtro_periodo.html" %}
+                {% endwith %}
                 <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-8 text-center">Lista de Despesas</h2>
                 <div class="overflow-x-auto bg-white rounded-lg shadow-sm">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -109,8 +114,8 @@
                             <tr class="transaction-animation hover:bg-red-50">
                                 <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap font-medium text-sm">{{ despesa.descricao }}</td>
                                 <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">{{ despesa.categoria }}</td>
-                                <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-red-600 font-medium text-sm hidden md:table-cell">R$ {{ '%.2f'|format(despesa.valor) }}</td>
-                                <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">{{ despesa.data }}</td>
+                                <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-red-600 font-medium text-sm hidden md:table-cell">R$ {{ despesa.valor|brl }}</td>
+                                <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">{{ despesa.data|data_br }}</td>
                                 <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
                                     <button 
                                         type="button"
@@ -128,6 +133,10 @@
                                         <button type="submit" class="text-red-700 hover:underline w-full sm:w-auto text-center py-1">Deletar</button>
                                     </form>
                                 </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="px-6 py-6 text-center text-gray-500 text-sm">Nada lançado nesse período.</td>
                             </tr>
                             {% endfor %}
                         </tbody>

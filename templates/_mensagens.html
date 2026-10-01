@@ -1,0 +1,9 @@
+{% with mensagens = get_flashed_messages() %}
+  {% if mensagens %}
+  <div class="max-w-xl mx-auto mb-6 space-y-2">
+    {% for msg in mensagens %}
+    <p class="bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg px-4 py-2 text-center">{{ msg }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
