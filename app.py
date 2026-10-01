@@ -8,14 +8,65 @@ import calendar
 import pandas as pd
 from io import BytesIO
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 app = Flask(__name__)
 # Em produção a chave vem da variável de ambiente SECRET_KEY (configurada no Render)
 app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+app.config['DATABASE'] = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, 'database.db'))
+
+SCHEMA = '''
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    senha_hash TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS receitas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    valor REAL NOT NULL,
+    categoria TEXT,
+    descricao TEXT,
+    data TEXT DEFAULT CURRENT_TIMESTAMP,
+    user_id INTEGER NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES usuarios(id)
+);
+
+CREATE TABLE IF NOT EXISTS despesas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    valor REAL NOT NULL,
+    categoria TEXT,
+    descricao TEXT,
+    data TEXT DEFAULT CURRENT_TIMESTAMP,
+    user_id INTEGER NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES usuarios(id)
+);
+
+CREATE TABLE IF NOT EXISTS investimentos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT NOT NULL,
+    ativo TEXT NOT NULL,
+    quantidade INTEGER NOT NULL,
+    valor_unitario REAL NOT NULL,
+    data_compra TEXT NOT NULL,
+    valor_atual REAL NOT NULL,
+    descricao TEXT,
+    user_id INTEGER NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES usuarios(id)
+);
+'''
 
 def get_db_connection():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(app.config['DATABASE'])
     conn.row_factory = sqlite3.Row
     return conn
+
+def init_db():
+    """Cria as tabelas que ainda não existem. Não apaga nenhum dado."""
+    conn = get_db_connection()
+    conn.executescript(SCHEMA)
+    conn.commit()
+    conn.close()
 
 @app.route('/')
 def inicial_pag():
@@ -593,6 +644,9 @@ def gerar_relatorio():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+
+# Garante que o banco existe sempre que o app sobe (local ou no Render)
+init_db()
 
 if __name__ == '__main__':
     app.run(debug=os.environ.get('FLASK_DEBUG') == '1')

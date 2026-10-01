@@ -1,0 +1,12 @@
+# Banco local (é criado automaticamente pelo app)
+database.db
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+
+# Variáveis de ambiente
+.env
