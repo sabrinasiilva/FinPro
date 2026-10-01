@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+import os
+import secrets
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
@@ -7,8 +9,8 @@ import pandas as pd
 from io import BytesIO
 
 app = Flask(__name__)
-# troque por uma chave forte em produção
-app.secret_key = 'chave_nova_sabrina_trocar_em_producao'
+# Em produção a chave vem da variável de ambiente SECRET_KEY (configurada no Render)
+app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
 def get_db_connection():
     conn = sqlite3.connect('database.db')
@@ -532,8 +534,11 @@ def edit_investimento(id):
 
 @app.route('/delete_investimento/<int:id>', methods=['POST'])
 def delete_investimento(id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
     conn = get_db_connection()
-    conn.execute('DELETE FROM investimentos WHERE id = ?', (id,))
+    conn.execute('DELETE FROM investimentos WHERE id = ? AND user_id = ?', (id, session['user_id']))
     conn.commit()
     conn.close()
     flash('Investimento deletado com sucesso!', 'success')
@@ -590,4 +595,4 @@ def gerar_relatorio():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=os.environ.get('FLASK_DEBUG') == '1')
